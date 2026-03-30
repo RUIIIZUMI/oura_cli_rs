@@ -1,0 +1,10 @@
+.vscode/
+.env
+.env.local
+
+/target
+
+.claude/
+.ai/
+.cursor/
+.agents/

@@ -1,0 +1,10 @@
+[package]
+name = "oura_cli_rs"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+color-eyre = "0.6"
+eyre = "0.6"
+clap = { version = "4.6", features = ["derive"] }
+tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
