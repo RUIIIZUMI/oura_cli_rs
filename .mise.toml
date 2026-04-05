@@ -1,0 +1,8 @@
+[tasks.verify]
+description = "Verify the project and entry point of AI agents"
+run = """
+    cargo sort --workspace --check
+    cargo fmt --all --check
+    cargo clippy --all-targets --all-features -- -D warnings
+    cargo test --all-targets --all-features
+"""

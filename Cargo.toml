@@ -1,10 +1,22 @@
-[package]
-name = "oura_cli_rs"
+[workspace]
+resolver = "3"
+members = ["crates/core", "oura_cli"]
+
+[workspace.package]
 version = "0.0.1"
 edition = "2024"
+authors = ["Rui Iizumi <rui.iizumi.20+job@gmail.com>"]
+description = "Oura CLI written by Rust"
+license = "MIT"
 
-[dependencies]
-color-eyre = "0.6"
-eyre = "0.6"
+rust-version = "1.94.1"
+
+[workspace.dependencies]
 clap = { version = "4.6", features = ["derive"] }
-tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
+color-eyre = "0.6"
+dotenvy = "0.15"
+eyre = "0.6"
+oura_core = { path = "crates/core" }
+reqwest = { version = "0.13.2", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

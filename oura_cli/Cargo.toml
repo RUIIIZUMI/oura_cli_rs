@@ -1,0 +1,16 @@
+[package]
+name = "oura_cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+color-eyre.workspace = true
+dotenvy.workspace = true
+eyre.workspace = true
+oura_core.workspace = true
+tokio.workspace = true
