@@ -64,14 +64,14 @@ pub struct DailyActivity {
     pub medium_activity_met_minutes: i32,
     pub medium_activity_time: i32,
     pub met: SampleModel,
-    pub meters_to_target: i32,
+    pub meters_to_target: Option<i32>,
     pub non_wear_time: i32,
     pub resting_time: i32,
     pub sedentary_met_minutes: i32,
     pub sedentary_time: i32,
     pub steps: i32,
-    pub target_calories: i32,
-    pub target_meters: i32,
+    pub target_calories: Option<i32>,
+    pub target_meters: Option<i32>,
     pub total_calories: i32,
     pub day: String,
     pub timestamp: String,
@@ -123,6 +123,8 @@ pub enum DailyStressSummary {
     Restored,
     Normal,
     Stressful,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -142,7 +144,7 @@ pub struct DailyStressResponse {
 
 // ── Heart Rate ────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum HeartRateSource {
     Awake,
@@ -151,6 +153,8 @@ pub enum HeartRateSource {
     Session,
     Live,
     Workout,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
