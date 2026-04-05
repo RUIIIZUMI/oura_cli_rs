@@ -872,6 +872,7 @@ dependencies = [
  "dotenvy",
  "eyre",
  "oura_core",
+ "serde_json",
  "tokio",
 ]
 
@@ -882,6 +883,7 @@ dependencies = [
  "eyre",
  "reqwest",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
