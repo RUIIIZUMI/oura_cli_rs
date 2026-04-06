@@ -1,5 +1,9 @@
+use async_trait::async_trait;
 use chrono::NaiveDate;
-use eyre::{Result, bail, eyre}; // eyre and bail are used in parse implementation
+use eyre::{Result, bail, eyre};
+use oura_core::client::OuraClient;
+use crate::display::{Display, OutputMode};
+use crate::Commands;
 
 #[derive(Debug)]
 pub struct DateRange {
@@ -39,14 +43,9 @@ impl DateRange {
     }
 }
 
-use async_trait::async_trait;
-use oura_core::client::OuraClient;
-use crate::display::{Display, OutputMode};
-use crate::Commands;
-
 #[async_trait]
 pub trait Execute: Send + Sync {
-    async fn execute(&self, client: &OuraClient) -> eyre::Result<()>;
+    async fn execute(&self, client: &OuraClient) -> Result<()>;
 }
 
 pub struct SleepCommand     { pub date_range: DateRange, pub display: Display }
@@ -57,7 +56,7 @@ pub struct HeartrateCommand { pub date_range: DateRange, pub display: Display }
 
 #[async_trait]
 impl Execute for SleepCommand {
-    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+    async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "sleep", "executing command");
         match client.get_daily_sleep(
             self.date_range.as_start_str().as_deref(),
@@ -75,7 +74,7 @@ impl Execute for SleepCommand {
 
 #[async_trait]
 impl Execute for ActivityCommand {
-    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+    async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "activity", "executing command");
         match client.get_daily_activity(
             self.date_range.as_start_str().as_deref(),
@@ -93,7 +92,7 @@ impl Execute for ActivityCommand {
 
 #[async_trait]
 impl Execute for ReadinessCommand {
-    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+    async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "readiness", "executing command");
         match client.get_daily_readiness(
             self.date_range.as_start_str().as_deref(),
@@ -111,7 +110,7 @@ impl Execute for ReadinessCommand {
 
 #[async_trait]
 impl Execute for StressCommand {
-    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+    async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "stress", "executing command");
         match client.get_daily_stress(
             self.date_range.as_start_str().as_deref(),
@@ -129,7 +128,7 @@ impl Execute for StressCommand {
 
 #[async_trait]
 impl Execute for HeartrateCommand {
-    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+    async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "heartrate", "executing command");
         match client.get_heartrate(
             self.date_range.as_start_str().as_deref(),
@@ -145,7 +144,7 @@ impl Execute for HeartrateCommand {
     }
 }
 
-pub fn from_cli(cmd: Commands) -> eyre::Result<Box<dyn Execute>> {
+pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
     match cmd {
         Commands::Sleep { start_date, end_date, json } => Ok(Box::new(SleepCommand {
             date_range: DateRange::parse(start_date, end_date)?,
@@ -216,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn from_cli_returns_err_on_bad_start_date() {
+    fn date_range_returns_err_on_bad_start_date() {
         let result = DateRange::parse(Some("not-a-date".into()), None);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("invalid start_date"));
