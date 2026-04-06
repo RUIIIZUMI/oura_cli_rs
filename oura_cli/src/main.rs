@@ -17,7 +17,7 @@ struct Cli {
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+pub enum Commands {
     /// Fetch daily sleep score
     Sleep {
         #[arg(long)]

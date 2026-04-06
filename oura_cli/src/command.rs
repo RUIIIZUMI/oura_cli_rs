@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use eyre::{Result, bail, eyre}; // eyre and bail are used in parse implementation
 
+#[derive(Debug)]
 pub struct DateRange {
     pub start: Option<NaiveDate>,
     pub end: Option<NaiveDate>,
@@ -35,6 +36,137 @@ impl DateRange {
 
     pub fn as_end_str(&self) -> Option<String> {
         self.end.map(|d| d.format("%Y-%m-%d").to_string())
+    }
+}
+
+use async_trait::async_trait;
+use oura_core::client::OuraClient;
+use crate::display::{Display, OutputMode};
+use crate::Commands;
+
+#[async_trait]
+pub trait Execute: Send + Sync {
+    async fn execute(&self, client: &OuraClient) -> eyre::Result<()>;
+}
+
+pub struct SleepCommand     { pub date_range: DateRange, pub display: Display }
+pub struct ActivityCommand  { pub date_range: DateRange, pub display: Display }
+pub struct ReadinessCommand { pub date_range: DateRange, pub display: Display }
+pub struct StressCommand    { pub date_range: DateRange, pub display: Display }
+pub struct HeartrateCommand { pub date_range: DateRange, pub display: Display }
+
+#[async_trait]
+impl Execute for SleepCommand {
+    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+        tracing::info!(command = "sleep", "executing command");
+        match client.get_daily_sleep(
+            self.date_range.as_start_str().as_deref(),
+            self.date_range.as_end_str().as_deref(),
+        ).await? {
+            None => println!("No sleep data found."),
+            Some(resp) => {
+                tracing::info!(count = resp.data.len(), "fetched records");
+                self.display.show(&resp);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Execute for ActivityCommand {
+    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+        tracing::info!(command = "activity", "executing command");
+        match client.get_daily_activity(
+            self.date_range.as_start_str().as_deref(),
+            self.date_range.as_end_str().as_deref(),
+        ).await? {
+            None => println!("No activity data found."),
+            Some(resp) => {
+                tracing::info!(count = resp.data.len(), "fetched records");
+                self.display.show(&resp);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Execute for ReadinessCommand {
+    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+        tracing::info!(command = "readiness", "executing command");
+        match client.get_daily_readiness(
+            self.date_range.as_start_str().as_deref(),
+            self.date_range.as_end_str().as_deref(),
+        ).await? {
+            None => println!("No readiness data found."),
+            Some(resp) => {
+                tracing::info!(count = resp.data.len(), "fetched records");
+                self.display.show(&resp);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Execute for StressCommand {
+    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+        tracing::info!(command = "stress", "executing command");
+        match client.get_daily_stress(
+            self.date_range.as_start_str().as_deref(),
+            self.date_range.as_end_str().as_deref(),
+        ).await? {
+            None => println!("No stress data found."),
+            Some(resp) => {
+                tracing::info!(count = resp.data.len(), "fetched records");
+                self.display.show(&resp);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Execute for HeartrateCommand {
+    async fn execute(&self, client: &OuraClient) -> eyre::Result<()> {
+        tracing::info!(command = "heartrate", "executing command");
+        match client.get_heartrate(
+            self.date_range.as_start_str().as_deref(),
+            self.date_range.as_end_str().as_deref(),
+        ).await? {
+            None => println!("No heart rate data found."),
+            Some(resp) => {
+                tracing::info!(count = resp.data.len(), "fetched records");
+                self.display.show(&resp);
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn from_cli(cmd: Commands) -> eyre::Result<Box<dyn Execute>> {
+    match cmd {
+        Commands::Sleep { start_date, end_date, json } => Ok(Box::new(SleepCommand {
+            date_range: DateRange::parse(start_date, end_date)?,
+            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+        })),
+        Commands::Activity { start_date, end_date, json } => Ok(Box::new(ActivityCommand {
+            date_range: DateRange::parse(start_date, end_date)?,
+            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+        })),
+        Commands::Readiness { start_date, end_date, json } => Ok(Box::new(ReadinessCommand {
+            date_range: DateRange::parse(start_date, end_date)?,
+            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+        })),
+        Commands::Stress { start_date, end_date, json } => Ok(Box::new(StressCommand {
+            date_range: DateRange::parse(start_date, end_date)?,
+            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+        })),
+        Commands::Heartrate { start_date, end_date, json } => Ok(Box::new(HeartrateCommand {
+            date_range: DateRange::parse(start_date, end_date)?,
+            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+        })),
     }
 }
 
@@ -81,5 +213,12 @@ mod tests {
             Some("2026-04-05".into()),
         );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn from_cli_returns_err_on_bad_start_date() {
+        let result = DateRange::parse(Some("not-a-date".into()), None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("invalid start_date"));
     }
 }
