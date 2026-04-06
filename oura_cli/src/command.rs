@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use eyre::{Result, bail, eyre};
-use oura_core::client::OuraClient;
+use oura_core::OuraClient;
+use oura_core::ports::sleep::SleepPort;
 
 use crate::Commands;
 use crate::display::{Display, OutputMode};
@@ -34,58 +37,60 @@ impl DateRange {
         }
         Ok(Self { start, end })
     }
-
-    pub fn as_start_str(&self) -> Option<String> {
-        self.start.map(|d| d.format("%Y-%m-%d").to_string())
-    }
-
-    pub fn as_end_str(&self) -> Option<String> {
-        self.end.map(|d| d.format("%Y-%m-%d").to_string())
-    }
 }
 
 #[async_trait]
 pub trait Execute: Send + Sync {
-    async fn execute(&self, client: &OuraClient) -> Result<()>;
+    async fn execute(&self) -> Result<()>;
 }
+
+// ── Commands ──────────────────────────────────────────────────────────────────
 
 pub struct SleepCommand {
     pub date_range: DateRange,
     pub display: Display,
+    pub adapter: Arc<dyn SleepPort>,
 }
+
 pub struct ActivityCommand {
     pub date_range: DateRange,
     pub display: Display,
+    pub client: Arc<OuraClient>,
 }
+
 pub struct ReadinessCommand {
     pub date_range: DateRange,
     pub display: Display,
+    pub client: Arc<OuraClient>,
 }
+
 pub struct StressCommand {
     pub date_range: DateRange,
     pub display: Display,
+    pub client: Arc<OuraClient>,
 }
+
 pub struct HeartrateCommand {
     pub date_range: DateRange,
     pub display: Display,
+    pub client: Arc<OuraClient>,
 }
+
+// ── Execute impls ─────────────────────────────────────────────────────────────
 
 #[async_trait]
 impl Execute for SleepCommand {
-    async fn execute(&self, client: &OuraClient) -> Result<()> {
+    async fn execute(&self) -> Result<()> {
         tracing::info!(command = "sleep", "executing command");
-        match client
-            .get_daily_sleep(
-                self.date_range.as_start_str().as_deref(),
-                self.date_range.as_end_str().as_deref(),
-            )
-            .await?
-        {
-            None => println!("No sleep data found."),
-            Some(resp) => {
-                tracing::info!(count = resp.data.len(), "fetched records");
-                self.display.show(&resp);
-            }
+        let summaries = self
+            .adapter
+            .daily_summary(self.date_range.start, self.date_range.end)
+            .await?;
+        if summaries.is_empty() {
+            println!("No sleep data found.");
+        } else {
+            tracing::info!(count = summaries.len(), "fetched records");
+            self.display.show(&summaries);
         }
         Ok(())
     }
@@ -93,13 +98,19 @@ impl Execute for SleepCommand {
 
 #[async_trait]
 impl Execute for ActivityCommand {
-    async fn execute(&self, client: &OuraClient) -> Result<()> {
+    async fn execute(&self) -> Result<()> {
         tracing::info!(command = "activity", "executing command");
-        match client
-            .get_daily_activity(
-                self.date_range.as_start_str().as_deref(),
-                self.date_range.as_end_str().as_deref(),
-            )
+        let start = self
+            .date_range
+            .start
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        let end = self
+            .date_range
+            .end
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        match self
+            .client
+            .get_daily_activity(start.as_deref(), end.as_deref())
             .await?
         {
             None => println!("No activity data found."),
@@ -114,13 +125,19 @@ impl Execute for ActivityCommand {
 
 #[async_trait]
 impl Execute for ReadinessCommand {
-    async fn execute(&self, client: &OuraClient) -> Result<()> {
+    async fn execute(&self) -> Result<()> {
         tracing::info!(command = "readiness", "executing command");
-        match client
-            .get_daily_readiness(
-                self.date_range.as_start_str().as_deref(),
-                self.date_range.as_end_str().as_deref(),
-            )
+        let start = self
+            .date_range
+            .start
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        let end = self
+            .date_range
+            .end
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        match self
+            .client
+            .get_daily_readiness(start.as_deref(), end.as_deref())
             .await?
         {
             None => println!("No readiness data found."),
@@ -135,13 +152,19 @@ impl Execute for ReadinessCommand {
 
 #[async_trait]
 impl Execute for StressCommand {
-    async fn execute(&self, client: &OuraClient) -> Result<()> {
+    async fn execute(&self) -> Result<()> {
         tracing::info!(command = "stress", "executing command");
-        match client
-            .get_daily_stress(
-                self.date_range.as_start_str().as_deref(),
-                self.date_range.as_end_str().as_deref(),
-            )
+        let start = self
+            .date_range
+            .start
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        let end = self
+            .date_range
+            .end
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        match self
+            .client
+            .get_daily_stress(start.as_deref(), end.as_deref())
             .await?
         {
             None => println!("No stress data found."),
@@ -156,13 +179,19 @@ impl Execute for StressCommand {
 
 #[async_trait]
 impl Execute for HeartrateCommand {
-    async fn execute(&self, client: &OuraClient) -> Result<()> {
+    async fn execute(&self) -> Result<()> {
         tracing::info!(command = "heartrate", "executing command");
-        match client
-            .get_heartrate(
-                self.date_range.as_start_str().as_deref(),
-                self.date_range.as_end_str().as_deref(),
-            )
+        let start = self
+            .date_range
+            .start
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        let end = self
+            .date_range
+            .end
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        match self
+            .client
+            .get_heartrate(start.as_deref(), end.as_deref())
             .await?
         {
             None => println!("No heart rate data found."),
@@ -175,7 +204,13 @@ impl Execute for HeartrateCommand {
     }
 }
 
-pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
+// ── Factory ───────────────────────────────────────────────────────────────────
+
+pub fn from_cli(
+    cmd: Commands,
+    client: Arc<OuraClient>,
+    sleep: Arc<dyn SleepPort>,
+) -> Result<Box<dyn Execute>> {
     match cmd {
         Commands::Sleep {
             start_date,
@@ -190,6 +225,7 @@ pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
                     OutputMode::Pretty
                 },
             },
+            adapter: sleep,
         })),
         Commands::Activity {
             start_date,
@@ -204,6 +240,7 @@ pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
                     OutputMode::Pretty
                 },
             },
+            client,
         })),
         Commands::Readiness {
             start_date,
@@ -218,6 +255,7 @@ pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
                     OutputMode::Pretty
                 },
             },
+            client,
         })),
         Commands::Stress {
             start_date,
@@ -232,6 +270,7 @@ pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
                     OutputMode::Pretty
                 },
             },
+            client,
         })),
         Commands::Heartrate {
             start_date,
@@ -246,6 +285,7 @@ pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
                     OutputMode::Pretty
                 },
             },
+            client,
         })),
     }
 }
@@ -257,8 +297,8 @@ mod tests {
     #[test]
     fn parse_valid_dates() {
         let dr = DateRange::parse(Some("2026-04-01".into()), Some("2026-04-07".into())).unwrap();
-        assert_eq!(dr.as_start_str(), Some("2026-04-01".into()));
-        assert_eq!(dr.as_end_str(), Some("2026-04-07".into()));
+        assert_eq!(dr.start.unwrap().to_string(), "2026-04-01");
+        assert_eq!(dr.end.unwrap().to_string(), "2026-04-07");
     }
 
     #[test]

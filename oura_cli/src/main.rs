@@ -2,9 +2,11 @@ mod command;
 mod display;
 mod util;
 
+use std::sync::Arc;
+
 use clap::{Parser, Subcommand};
 use eyre::{Result, bail};
-use oura_core::client::OuraClient;
+use oura_core::{OuraClient, OuraSleepAdapter};
 
 #[derive(Parser)]
 #[command(name = "oura", about = "Oura API CLI")]
@@ -86,8 +88,9 @@ async fn main() -> Result<()> {
         Err(_) => bail!("OURA_RING_API_KEY environment variable is not set"),
     };
 
-    let client = OuraClient::new(token);
+    let client = Arc::new(OuraClient::new(token));
+    let sleep_adapter = Arc::new(OuraSleepAdapter::new(Arc::clone(&client)));
 
-    let cmd = command::from_cli(cli.command)?;
-    cmd.execute(&client).await
+    let cmd = command::from_cli(cli.command, client, sleep_adapter)?;
+    cmd.execute().await
 }

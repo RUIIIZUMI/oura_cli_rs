@@ -1,8 +1,8 @@
 use oura_core::models::{
-    DailyActivity, DailyActivityResponse, DailyReadiness, DailyReadinessResponse,
-    DailySleepResponse, DailyStress, DailyStressResponse, DailyStressSummary, HeartRate,
-    HeartRateResponse,
+    DailyActivity, DailyActivityResponse, DailyReadiness, DailyReadinessResponse, DailyStress,
+    DailyStressResponse, DailyStressSummary, HeartRate, HeartRateResponse,
 };
+use oura_core::ports::sleep::SleepSummary;
 
 pub enum OutputMode {
     Pretty,
@@ -30,15 +30,13 @@ impl Display {
 
 // ── Displayable impls ─────────────────────────────────────────────────────────
 
-impl Displayable for DailySleepResponse {
+impl Displayable for Vec<SleepSummary> {
     fn display_pretty(&self) {
         print_score_chart(
             "Sleep Score",
-            self.data.iter().map(|e| {
-                (
-                    e.day.get(5..).unwrap_or(&e.day).to_string(),
-                    e.score.unwrap_or(0),
-                )
+            self.iter().map(|e| {
+                let day = e.day.format("%m-%d").to_string();
+                (day, e.score.unwrap_or(0) as i32)
             }),
         );
     }
@@ -186,16 +184,13 @@ fn print_heartrate_table(entries: &[HeartRate]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oura_core::models::DailySleepResponse;
+    use oura_core::ports::sleep::{SleepScoreBreakdown, SleepSummary};
 
     #[test]
-    fn show_json_serializes_response() {
-        let resp = DailySleepResponse {
-            data: vec![],
-            next_token: None,
-        };
-        let json = serde_json::to_string_pretty(&resp).unwrap();
-        assert!(json.contains("\"data\""));
+    fn show_json_serializes_sleep_summary() {
+        let summaries: Vec<SleepSummary> = vec![];
+        let json = serde_json::to_string_pretty(&summaries).unwrap();
+        assert!(json.contains("[]"));
     }
 
     #[test]
@@ -204,5 +199,30 @@ mod tests {
             mode: OutputMode::Pretty,
         };
         assert!(matches!(d.mode, OutputMode::Pretty));
+    }
+
+    #[test]
+    fn sleep_summary_display_pretty_empty() {
+        let summaries: Vec<SleepSummary> = vec![];
+        summaries.display_pretty();
+    }
+
+    #[test]
+    fn sleep_summary_display_pretty_with_data() {
+        use chrono::NaiveDate;
+        let summaries = vec![SleepSummary {
+            day: NaiveDate::from_ymd_opt(2026, 4, 5).unwrap(),
+            score: Some(80),
+            contributors: SleepScoreBreakdown {
+                deep_sleep: Some(70),
+                efficiency: Some(85),
+                latency: Some(90),
+                rem_sleep: Some(75),
+                restfulness: Some(80),
+                timing: Some(72),
+                total_sleep: Some(78),
+            },
+        }];
+        summaries.display_pretty();
     }
 }
