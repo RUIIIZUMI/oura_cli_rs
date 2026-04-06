@@ -1,24 +1,74 @@
+mod command;
+mod display;
+mod util;
+
+use std::sync::Arc;
+
 use clap::{Parser, Subcommand};
-use eyre::{bail, Result};
-use oura_core::client::OuraClient;
+use eyre::{Result, bail};
+use oura_core::{OuraClient, OuraSleepAdapter};
 
 #[derive(Parser)]
 #[command(name = "oura", about = "Oura API CLI")]
 struct Cli {
+    /// Enable debug logging
+    #[arg(long, global = true)]
+    debug: bool,
     #[command(subcommand)]
     command: Commands,
 }
 
-#[derive(Subcommand)]
-enum Commands {
-    /// Fetch daily sleep data
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Fetch daily sleep score
     Sleep {
-        /// Start date (YYYY-MM-DD)
         #[arg(long)]
         start_date: Option<String>,
-        /// End date (YYYY-MM-DD)
         #[arg(long)]
         end_date: Option<String>,
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fetch daily activity score
+    Activity {
+        #[arg(long)]
+        start_date: Option<String>,
+        #[arg(long)]
+        end_date: Option<String>,
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fetch daily readiness score
+    Readiness {
+        #[arg(long)]
+        start_date: Option<String>,
+        #[arg(long)]
+        end_date: Option<String>,
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fetch daily stress level
+    Stress {
+        #[arg(long)]
+        start_date: Option<String>,
+        #[arg(long)]
+        end_date: Option<String>,
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fetch heart rate samples
+    Heartrate {
+        #[arg(long)]
+        start_date: Option<String>,
+        #[arg(long)]
+        end_date: Option<String>,
+        /// Output raw JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -29,50 +79,18 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    util::init_tracing(cli.debug);
+
+    tracing::info!("oura cli started");
+
     let token = match std::env::var("OURA_RING_API_KEY") {
         Ok(t) => t,
         Err(_) => bail!("OURA_RING_API_KEY environment variable is not set"),
     };
 
-    let client = OuraClient::new(token);
+    let client = Arc::new(OuraClient::new(token));
+    let sleep_adapter = Arc::new(OuraSleepAdapter::new(Arc::clone(&client)));
 
-    match cli.command {
-        Commands::Sleep {
-            start_date,
-            end_date,
-        } => {
-            let resp = client
-                .get_daily_sleep(start_date.as_deref(), end_date.as_deref())
-                .await?;
-
-            if resp.data.is_empty() {
-                println!("No sleep data found for the given range.");
-                return Ok(());
-            }
-
-            println!("Sleep Score");
-            println!("{}", "─".repeat(50));
-            for entry in &resp.data {
-                let score = entry.score.unwrap_or(0);
-                let bar_len = score as usize / 2;
-                let bar = "█".repeat(bar_len);
-                let color = match score {
-                    80.. => "\x1b[32m",
-                    60.. => "\x1b[33m",
-                    _ => "\x1b[31m",
-                };
-                println!(
-                    "{} │ {}{}{}\x1b[0m {}",
-                    &entry.day[5..],
-                    color,
-                    bar,
-                    " ".repeat(50 - bar_len),
-                    score,
-                );
-            }
-            println!("{}", "─".repeat(50));
-        }
-    }
-
-    Ok(())
+    let cmd = command::from_cli(cli.command, client, sleep_adapter)?;
+    cmd.execute().await
 }
