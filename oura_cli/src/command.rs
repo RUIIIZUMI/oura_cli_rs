@@ -2,8 +2,9 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use eyre::{Result, bail, eyre};
 use oura_core::client::OuraClient;
-use crate::display::{Display, OutputMode};
+
 use crate::Commands;
+use crate::display::{Display, OutputMode};
 
 #[derive(Debug)]
 pub struct DateRange {
@@ -26,10 +27,10 @@ impl DateRange {
                     .map_err(|_| eyre!("invalid end_date format '{s}', expected YYYY-MM-DD"))
             })
             .transpose()?;
-        if let (Some(s), Some(e)) = (start, end) {
-            if s > e {
-                bail!("start_date {s} is after end_date {e}");
-            }
+        if let (Some(s), Some(e)) = (start, end)
+            && s > e
+        {
+            bail!("start_date {s} is after end_date {e}");
         }
         Ok(Self { start, end })
     }
@@ -48,20 +49,38 @@ pub trait Execute: Send + Sync {
     async fn execute(&self, client: &OuraClient) -> Result<()>;
 }
 
-pub struct SleepCommand     { pub date_range: DateRange, pub display: Display }
-pub struct ActivityCommand  { pub date_range: DateRange, pub display: Display }
-pub struct ReadinessCommand { pub date_range: DateRange, pub display: Display }
-pub struct StressCommand    { pub date_range: DateRange, pub display: Display }
-pub struct HeartrateCommand { pub date_range: DateRange, pub display: Display }
+pub struct SleepCommand {
+    pub date_range: DateRange,
+    pub display: Display,
+}
+pub struct ActivityCommand {
+    pub date_range: DateRange,
+    pub display: Display,
+}
+pub struct ReadinessCommand {
+    pub date_range: DateRange,
+    pub display: Display,
+}
+pub struct StressCommand {
+    pub date_range: DateRange,
+    pub display: Display,
+}
+pub struct HeartrateCommand {
+    pub date_range: DateRange,
+    pub display: Display,
+}
 
 #[async_trait]
 impl Execute for SleepCommand {
     async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "sleep", "executing command");
-        match client.get_daily_sleep(
-            self.date_range.as_start_str().as_deref(),
-            self.date_range.as_end_str().as_deref(),
-        ).await? {
+        match client
+            .get_daily_sleep(
+                self.date_range.as_start_str().as_deref(),
+                self.date_range.as_end_str().as_deref(),
+            )
+            .await?
+        {
             None => println!("No sleep data found."),
             Some(resp) => {
                 tracing::info!(count = resp.data.len(), "fetched records");
@@ -76,10 +95,13 @@ impl Execute for SleepCommand {
 impl Execute for ActivityCommand {
     async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "activity", "executing command");
-        match client.get_daily_activity(
-            self.date_range.as_start_str().as_deref(),
-            self.date_range.as_end_str().as_deref(),
-        ).await? {
+        match client
+            .get_daily_activity(
+                self.date_range.as_start_str().as_deref(),
+                self.date_range.as_end_str().as_deref(),
+            )
+            .await?
+        {
             None => println!("No activity data found."),
             Some(resp) => {
                 tracing::info!(count = resp.data.len(), "fetched records");
@@ -94,10 +116,13 @@ impl Execute for ActivityCommand {
 impl Execute for ReadinessCommand {
     async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "readiness", "executing command");
-        match client.get_daily_readiness(
-            self.date_range.as_start_str().as_deref(),
-            self.date_range.as_end_str().as_deref(),
-        ).await? {
+        match client
+            .get_daily_readiness(
+                self.date_range.as_start_str().as_deref(),
+                self.date_range.as_end_str().as_deref(),
+            )
+            .await?
+        {
             None => println!("No readiness data found."),
             Some(resp) => {
                 tracing::info!(count = resp.data.len(), "fetched records");
@@ -112,10 +137,13 @@ impl Execute for ReadinessCommand {
 impl Execute for StressCommand {
     async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "stress", "executing command");
-        match client.get_daily_stress(
-            self.date_range.as_start_str().as_deref(),
-            self.date_range.as_end_str().as_deref(),
-        ).await? {
+        match client
+            .get_daily_stress(
+                self.date_range.as_start_str().as_deref(),
+                self.date_range.as_end_str().as_deref(),
+            )
+            .await?
+        {
             None => println!("No stress data found."),
             Some(resp) => {
                 tracing::info!(count = resp.data.len(), "fetched records");
@@ -130,10 +158,13 @@ impl Execute for StressCommand {
 impl Execute for HeartrateCommand {
     async fn execute(&self, client: &OuraClient) -> Result<()> {
         tracing::info!(command = "heartrate", "executing command");
-        match client.get_heartrate(
-            self.date_range.as_start_str().as_deref(),
-            self.date_range.as_end_str().as_deref(),
-        ).await? {
+        match client
+            .get_heartrate(
+                self.date_range.as_start_str().as_deref(),
+                self.date_range.as_end_str().as_deref(),
+            )
+            .await?
+        {
             None => println!("No heart rate data found."),
             Some(resp) => {
                 tracing::info!(count = resp.data.len(), "fetched records");
@@ -146,25 +177,75 @@ impl Execute for HeartrateCommand {
 
 pub fn from_cli(cmd: Commands) -> Result<Box<dyn Execute>> {
     match cmd {
-        Commands::Sleep { start_date, end_date, json } => Ok(Box::new(SleepCommand {
+        Commands::Sleep {
+            start_date,
+            end_date,
+            json,
+        } => Ok(Box::new(SleepCommand {
             date_range: DateRange::parse(start_date, end_date)?,
-            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+            display: Display {
+                mode: if json {
+                    OutputMode::Json
+                } else {
+                    OutputMode::Pretty
+                },
+            },
         })),
-        Commands::Activity { start_date, end_date, json } => Ok(Box::new(ActivityCommand {
+        Commands::Activity {
+            start_date,
+            end_date,
+            json,
+        } => Ok(Box::new(ActivityCommand {
             date_range: DateRange::parse(start_date, end_date)?,
-            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+            display: Display {
+                mode: if json {
+                    OutputMode::Json
+                } else {
+                    OutputMode::Pretty
+                },
+            },
         })),
-        Commands::Readiness { start_date, end_date, json } => Ok(Box::new(ReadinessCommand {
+        Commands::Readiness {
+            start_date,
+            end_date,
+            json,
+        } => Ok(Box::new(ReadinessCommand {
             date_range: DateRange::parse(start_date, end_date)?,
-            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+            display: Display {
+                mode: if json {
+                    OutputMode::Json
+                } else {
+                    OutputMode::Pretty
+                },
+            },
         })),
-        Commands::Stress { start_date, end_date, json } => Ok(Box::new(StressCommand {
+        Commands::Stress {
+            start_date,
+            end_date,
+            json,
+        } => Ok(Box::new(StressCommand {
             date_range: DateRange::parse(start_date, end_date)?,
-            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+            display: Display {
+                mode: if json {
+                    OutputMode::Json
+                } else {
+                    OutputMode::Pretty
+                },
+            },
         })),
-        Commands::Heartrate { start_date, end_date, json } => Ok(Box::new(HeartrateCommand {
+        Commands::Heartrate {
+            start_date,
+            end_date,
+            json,
+        } => Ok(Box::new(HeartrateCommand {
             date_range: DateRange::parse(start_date, end_date)?,
-            display: Display { mode: if json { OutputMode::Json } else { OutputMode::Pretty } },
+            display: Display {
+                mode: if json {
+                    OutputMode::Json
+                } else {
+                    OutputMode::Pretty
+                },
+            },
         })),
     }
 }
@@ -175,10 +256,7 @@ mod tests {
 
     #[test]
     fn parse_valid_dates() {
-        let dr = DateRange::parse(
-            Some("2026-04-01".into()),
-            Some("2026-04-07".into()),
-        ).unwrap();
+        let dr = DateRange::parse(Some("2026-04-01".into()), Some("2026-04-07".into())).unwrap();
         assert_eq!(dr.as_start_str(), Some("2026-04-01".into()));
         assert_eq!(dr.as_end_str(), Some("2026-04-07".into()));
     }
@@ -198,19 +276,13 @@ mod tests {
 
     #[test]
     fn parse_start_after_end_returns_err() {
-        let result = DateRange::parse(
-            Some("2026-04-10".into()),
-            Some("2026-04-01".into()),
-        );
+        let result = DateRange::parse(Some("2026-04-10".into()), Some("2026-04-01".into()));
         assert!(result.is_err());
     }
 
     #[test]
     fn parse_same_start_and_end_is_ok() {
-        let result = DateRange::parse(
-            Some("2026-04-05".into()),
-            Some("2026-04-05".into()),
-        );
+        let result = DateRange::parse(Some("2026-04-05".into()), Some("2026-04-05".into()));
         assert!(result.is_ok());
     }
 
@@ -218,6 +290,11 @@ mod tests {
     fn date_range_returns_err_on_bad_start_date() {
         let result = DateRange::parse(Some("not-a-date".into()), None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid start_date"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("invalid start_date")
+        );
     }
 }
